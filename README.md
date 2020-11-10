@@ -1,3 +1,5 @@
+LUCIENMP> This is a fork of https://github.com/wavedrom/wavedrom; its a hack to enable MediaWiki Visual Editor plugin work to happen
+
 [![Build Status](https://travis-ci.org/drom/wavedrom.svg?branch=master)](https://travis-ci.org/drom/wavedrom)
 [![Dependency Status](https://david-dm.org/drom/wavedrom.svg)](https://david-dm.org/drom/wavedrom)
 [![DevDependency Status](https://david-dm.org/drom/wavedrom/dev-status.svg)](https://david-dm.org/drom/wavedrom?type=dev)
