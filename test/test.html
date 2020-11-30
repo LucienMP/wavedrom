@@ -4,7 +4,7 @@
   <title>testsuit</title>
   <script type="text/javascript" src="../skins/default.js"></script>
   <script type="text/javascript" src="../skins/narrow.js"></script>
-  <script type="text/javascript" src="../wavedrom.min.js"></script>
+  <script type="text/javascript" src="../wavedrom.js"></script>
   <link href='http://fonts.googleapis.com/css?family=Roboto|Droid+Sans+Mono|Varela+Round' rel='stylesheet' type='text/css'>
 </head>
 
@@ -188,24 +188,26 @@ foot: {text:
 }
 </script>
 
-<script type="WaveDrom">
-(function (bits, ticks) {
+<script type="text/javascript">
+  (function (bits, ticks) {
   var i, t, gray, state, data = [], arr = [];
   for (i = 0; i < bits; i++) {
-    arr.push({name: i + '', wave: ''});
-    state = 1;
-    for (t = 0; t < ticks; t++) {
-      data.push(t + '');
-      gray = (((t >> 1) ^ t) >> i) & 1;
-      arr[i].wave += (gray === state) ? '.' : gray + '';
-      state = gray;
-    }
+  arr.push({name: i + '', wave: ''});
+  state = 1;
+  for (t = 0; t < ticks; t++) {
+  data.push(t + '');
+  gray = (((t >> 1) ^ t) >> i) & 1;
+  arr[i].wave += (gray === state) ? '.' : gray + '';
+  state = gray;
+  }
   }
   arr.unshift('gray');
-  return {signal: [
-    {name: 'bin', wave: '='.repeat(ticks), data: data}, arr
-  ]};
-})(5, 16)
+
+  var value = {signal: [
+      {name: 'bin', wave: '='.repeat(ticks), data: data}, arr
+    ]}
+  document.write( '<script type="WaveDrom">' + JSON.stringify( value ) + '<' + '/script>' );
+  })(5, 16)
 </script>
 
 </div>

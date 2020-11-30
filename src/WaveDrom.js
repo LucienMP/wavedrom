@@ -1176,6 +1176,7 @@ function editorRefresh () {
 /* Public API: */
 WaveDrom.RenderWaveForm = renderWaveForm;
 WaveDrom.ProcessAll = processAll;
+WaveDrom.Process = process;
 WaveDrom.EditorRefresh = editorRefresh;
 
 })();

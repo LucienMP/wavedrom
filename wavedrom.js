@@ -158,7 +158,9 @@ function editorRefresh () {
     // 	sjson,
     // 	ajson;
 
-    renderWaveForm(0, eva('InputJSON_0'), 'WaveDrom_Display_');
+    var element = document.getElementById('InputJSON_0');
+
+    renderWaveForm(0, eva(element.value), 'WaveDrom_Display_');
 
     /*
     svg = document.getElementById('svgcontent_0');
@@ -179,35 +181,41 @@ function editorRefresh () {
 
 module.exports = editorRefresh;
 
-},{"./eva":4,"./render-wave-form":29}],4:[function(require,module,exports){
+},{"./eva":4,"./render-wave-form":30}],4:[function(require,module,exports){
 'use strict';
 
-function eva (id) {
-    var TheTextBox, source;
+function eva (value) {
+    var source;
 
     function erra (e) {
         return { signal: [{ name: ['tspan', ['tspan', {class:'error h5'}, 'Error: '], e.message] }]};
     }
 
-    TheTextBox = document.getElementById(id);
+    // Backward compatible code, converts javascript object definition style to JSON
+    // wrap property name with quotes { name : .... } ---> { "name" : .... }
+    value = value.replaceAll( /(\s*[{,]\s*)(\w+)(\s*:\s*)/g, '$1"$2"$3' );
+    // replace apostrophes with quites for property name
+    value = value.replaceAll( /(\s*[{,]\s*)'((?:[^']|\\')*)'(\s*:\s*)/g, '$1"$2"$3' );
+    // replace apostrophes with quites for values  { "name" : 'value' } ---> { "name" : "value" }
+    value = value.replaceAll( /([[:,]\s*)'((?:[^']|\\')*)'/g, '$1"$2"' );
+    // remove unexpected commas
+    value = value.replaceAll( /(["}\d]\s*),(\s*[\]}])/g, '$1$2' );
 
-    /* eslint-disable no-eval */
-    if (TheTextBox.type && TheTextBox.type === 'textarea') {
-        try { source = eval('(' + TheTextBox.value + ')'); } catch (e) { return erra(e); }
-    } else {
-        try { source = eval('(' + TheTextBox.innerHTML + ')'); } catch (e) { return erra(e); }
+    try {
+        source = JSON.parse(value);
+    } catch (e) {
+        return erra(e);
     }
-    /* eslint-enable  no-eval */
 
-    if (Object.prototype.toString.call(source) !== '[object Object]') {
-        return erra({ message: '[Semantic]: The root has to be an Object: "{signal:[...]}"'});
+    if (typeof source !== 'object') {
+        return erra({ message : '[Semantic]: The root has to be an Object: "{signal:[...]}"'});
     }
     if (source.signal) {
-        if (Object.prototype.toString.call(source.signal) !== '[object Array]') {
+        if (!Array.isArray(source.signal)) {
             return erra({ message: '[Semantic]: "signal" object has to be an Array "signal:[]"'});
         }
     } else if (source.assign) {
-        if (Object.prototype.toString.call(source.assign) !== '[object Array]') {
+        if (!Array.isArray(source.assign)) {
             return erra({ message: '[Semantic]: "assign" object hasto be an Array "assign:[]"'});
         }
     } else if (source.reg) {
@@ -444,18 +452,20 @@ module.exports = genWaveBrick;
 'use strict';
 
 var processAll = require('./process-all'),
+    process =  require('./process'),
     eva = require('./eva'),
     renderWaveForm = require('./render-wave-form'),
     editorRefresh = require('./editor-refresh');
 
 module.exports = {
     processAll: processAll,
+    process: process,
     eva: eva,
     renderWaveForm: renderWaveForm,
     editorRefresh: editorRefresh
 };
 
-},{"./editor-refresh":3,"./eva":4,"./process-all":21,"./render-wave-form":29}],10:[function(require,module,exports){
+},{"./editor-refresh":3,"./eva":4,"./process":22,"./process-all":21,"./render-wave-form":30}],10:[function(require,module,exports){
 'use strict';
 
 var jsonmlParse = require('./create-element'),
@@ -479,12 +489,57 @@ module.exports = insertSVGTemplateAssign;
 
 /* eslint-env browser */
 
-},{"./create-element":2,"./w3":31}],11:[function(require,module,exports){
+},{"./create-element":2,"./w3":32}],11:[function(require,module,exports){
 'use strict';
 
 var jsonmlParse = require('./create-element'),
     w3 = require('./w3'),
     waveSkin = require('./wave-skin');
+
+// LMP: Insert style 
+function insertSVGStyle( parent, source, lane ) {
+    var e, first ;
+    
+    for (first in waveSkin) { break; }
+
+    // See if the WaveDromSVGStyle
+    var doc = document.querySelectorAll('.WaveDromSVGStyle');
+    if( doc.length!=0 ) return ;
+    
+    e = waveSkin.default || waveSkin[first];
+
+    if (source && source.config && source.config.skin && waveSkin[source.config.skin]) {
+        e = waveSkin[source.config.skin];
+    }
+
+    lane.xs     = Number(e[3][1][2][1].width);
+    lane.ys     = Number(e[3][1][2][1].height);
+    lane.xlabel = Number(e[3][1][2][1].x);
+    lane.ym     = Number(e[3][1][2][1].y);
+    
+    e[1].id = 'WaveDromSVGStyle';
+    e[1].class = 'WaveDromSVGStyle';
+    e[1].height = 0;
+    
+    var head = document.head || document.getElementsByTagName('head')[0] ;
+    
+    var    node = jsonmlParse(e);
+    //parent.insertBefore(node, null);
+    //document.head.insertBefore(node, null);
+    head.insertBefore(node, null);
+    
+    var css = 'div.wavedromMenu{position:fixed;border:solid 1pt#CCCCCC;background-color:white;box-shadow:0px 10px 20px #808080;cursor:default;margin:0px;padding:0px;}div.wavedromMenu>ul{margin:0px;padding:0px;}div.wavedromMenu>ul>li{padding:2px 10px;list-style:none;}div.wavedromMenu>ul>li:hover{background-color:#b5d5ff;}';
+    var style = document.createElement('style');
+
+    style.type = 'text/css';
+    if (style.styleSheet){
+	style.styleSheet.cssText = css;
+    } else {
+	style.appendChild(document.createTextNode(css));
+    }
+
+    head.appendChild(style);
+}
 
 function insertSVGTemplate (index, parent, source, lane) {
     var node, first, e;
@@ -494,6 +549,10 @@ function insertSVGTemplate (index, parent, source, lane) {
         parent.removeChild(parent.childNodes[0]);
     }
 
+    // LMP: Insert style to header only once per page
+    insertSVGStyle( parent, source, lane );
+    
+/* LMP> Shift into style selection function
     for (first in waveSkin) { break; }
 
     e = waveSkin.default || waveSkin[first];
@@ -508,6 +567,8 @@ function insertSVGTemplate (index, parent, source, lane) {
         lane.xlabel = Number(e[3][1][2][1].x);
         lane.ym     = Number(e[3][1][2][1].y);
     } else {
+LMP; enable SVG output> */
+    if( true ) {
         e = ['svg',
             {
                 id: 'svg',
@@ -539,7 +600,7 @@ module.exports = insertSVGTemplate;
 
 /* eslint-env browser */
 
-},{"./create-element":2,"./w3":31,"./wave-skin":33}],12:[function(require,module,exports){
+},{"./create-element":2,"./w3":32,"./wave-skin":34}],12:[function(require,module,exports){
 'use strict';
 
 //attribute name mapping
@@ -881,7 +942,7 @@ module.exports = parse;
 /* eslint-env browser */
 /* eslint yoda:1 */
 
-},{"./jsonml-add-attributes":12,"./jsonml-append-child":13,"./jsonml-hydrate":14,"./jsonml-trim-whitespace":16,"./w3":31}],16:[function(require,module,exports){
+},{"./jsonml-add-attributes":12,"./jsonml-append-child":13,"./jsonml-hydrate":14,"./jsonml-trim-whitespace":16,"./w3":32}],16:[function(require,module,exports){
 'use strict';
 
 /*bool*/ function isWhitespace(/*DOM*/ node) {
@@ -1152,46 +1213,68 @@ module.exports = parseWaveLanes;
 },{"./parse-wave-lane":19}],21:[function(require,module,exports){
 'use strict';
 
-var eva = require('./eva'),
-    appendSaveAsDialog = require('./append-save-as-dialog'),
-    renderWaveForm = require('./render-wave-form');
+var process = require('./process');
 
 function processAll () {
     var points,
         i,
-        index,
-        node0;
-        // node1;
+        value,
+        element,
+        node;
 
-    // first pass
-    index = 0; // actual number of valid anchor
-    points = document.querySelectorAll('*');
+    points = document.querySelectorAll('*[type=WaveDrom]');
     for (i = 0; i < points.length; i++) {
-        if (points.item(i).type && points.item(i).type === 'WaveDrom') {
-            points.item(i).setAttribute('id', 'InputJSON_' + index);
-
-            node0 = document.createElement('div');
-            //			node0.className += 'WaveDrom_Display_' + index;
-            node0.id = 'WaveDrom_Display_' + index;
-            points.item(i).parentNode.insertBefore(node0, points.item(i));
-            // WaveDrom.InsertSVGTemplate(i, node0);
-            index += 1;
+        element = points.item(i);
+        if (element.type === 'textarea') {
+            value = element.value;
+        } else {
+            value = element.innerHTML;
         }
+
+        node = document.createElement('div');
+        element.parentNode.insertBefore(node, element);
+        process(node, value);
     }
-    // second pass
-    for (i = 0; i < index; i += 1) {
-        renderWaveForm(i, eva('InputJSON_' + i), 'WaveDrom_Display_');
-        appendSaveAsDialog(i, 'WaveDrom_Display_');
-    }
-    // add styles
-    document.head.innerHTML += '<style type="text/css">div.wavedromMenu{position:fixed;border:solid 1pt#CCCCCC;background-color:white;box-shadow:0px 10px 20px #808080;cursor:default;margin:0px;padding:0px;}div.wavedromMenu>ul{margin:0px;padding:0px;}div.wavedromMenu>ul>li{padding:2px 10px;list-style:none;}div.wavedromMenu>ul>li:hover{background-color:#b5d5ff;}</style>';
 }
 
 module.exports = processAll;
 
 /* eslint-env browser */
 
-},{"./append-save-as-dialog":1,"./eva":4,"./render-wave-form":29}],22:[function(require,module,exports){
+},{"./process":22}],22:[function(require,module,exports){
+'use strict';
+
+var eva = require('./eva'),
+	appendSaveAsDialog = require('./append-save-as-dialog'),
+	renderWaveForm = require('./render-wave-form');
+
+var index = 0;
+
+function process( element, value ) {
+	var data = eva(value),
+		idPrefix = 'WaveDrom_Display_',
+		className = 'wavedrom-output',
+		oldOutputNode = element.querySelector('.' + className),
+		outputNode;
+
+	index++;
+	if ( oldOutputNode ) {
+		oldOutputNode.remove();
+	}
+
+	outputNode = document.createElement('div');
+	outputNode.id = idPrefix + index;
+	outputNode.className = className;
+	element.append(outputNode);
+	renderWaveForm(index, data, idPrefix);
+	appendSaveAsDialog(index, idPrefix);
+}
+
+module.exports = process;
+
+/* eslint-env browser */
+
+},{"./append-save-as-dialog":1,"./eva":4,"./render-wave-form":30}],23:[function(require,module,exports){
 'use strict';
 
 function rec (tmp, state) {
@@ -1222,7 +1305,7 @@ function rec (tmp, state) {
 
 module.exports = rec;
 
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 'use strict';
 
 var tspan = require('tspan'),
@@ -1469,7 +1552,7 @@ module.exports = renderArcs;
 
 /* eslint-env browser */
 
-},{"./create-element":2,"./w3":31,"tspan":38}],24:[function(require,module,exports){
+},{"./create-element":2,"./w3":32,"tspan":36}],25:[function(require,module,exports){
 'use strict';
 
 var jsonmlParse = require('./create-element');
@@ -1677,7 +1760,7 @@ module.exports = renderAssign;
 
 /* eslint-env browser */
 
-},{"./create-element":2}],25:[function(require,module,exports){
+},{"./create-element":2}],26:[function(require,module,exports){
 'use strict';
 
 var w3 = require('./w3');
@@ -1735,7 +1818,7 @@ module.exports = renderGaps;
 
 /* eslint-env browser */
 
-},{"./w3":31}],26:[function(require,module,exports){
+},{"./w3":32}],27:[function(require,module,exports){
 'use strict';
 
 var tspan = require('tspan');
@@ -1776,7 +1859,7 @@ module.exports = renderGroups;
 
 /* eslint-env browser */
 
-},{"tspan":38}],27:[function(require,module,exports){
+},{"tspan":36}],28:[function(require,module,exports){
 'use strict';
 
 var tspan = require('tspan'),
@@ -1907,7 +1990,7 @@ module.exports = renderMarks;
 
 /* eslint-env browser */
 
-},{"./create-element":2,"tspan":38}],28:[function(require,module,exports){
+},{"./create-element":2,"tspan":36}],29:[function(require,module,exports){
 'use strict';
 
 var jsonmlParse = require('./create-element'),
@@ -1925,7 +2008,7 @@ function renderReg (index, source, parent) {
 
 module.exports = renderReg;
 
-},{"./create-element":2,"bit-field/lib/render":34}],29:[function(require,module,exports){
+},{"./create-element":2,"bit-field/lib/render":35}],30:[function(require,module,exports){
 'use strict';
 
 var rec = require('./rec'),
@@ -1970,6 +2053,17 @@ function renderWaveForm (index, source, output) {
 
         svgcontent = document.getElementById('svgcontent_' + index);
         svgcontent.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+
+	/* LMP : Extend the outer div, IF specified fit to size */
+	var parentWidth = svgcontent.parentElement.parentElement.clientWidth ;
+	var parentHeight = svgcontent.parentElement.parentElement.clientHeight ;
+
+	// Scale when NOT being edited
+	if(	svgcontent.parentElement.parentElement.classList.contains('wavdrom-scaled-container') ) {
+	   width = parentWidth ;
+	   height = parentHeight ;
+	}
+
         svgcontent.setAttribute('width', width);
         svgcontent.setAttribute('height', height);
         svgcontent.setAttribute('overflow', 'hidden');
@@ -1986,7 +2080,7 @@ module.exports = renderWaveForm;
 
 /* eslint-env browser */
 
-},{"./create-element":2,"./insert-svg-template":11,"./insert-svg-template-assign":10,"./lane":17,"./parse-config":18,"./parse-wave-lanes":20,"./rec":22,"./render-arcs":23,"./render-assign":24,"./render-gaps":25,"./render-groups":26,"./render-marks":27,"./render-reg":28,"./render-wave-lane":30}],30:[function(require,module,exports){
+},{"./create-element":2,"./insert-svg-template":11,"./insert-svg-template-assign":10,"./lane":17,"./parse-config":18,"./parse-wave-lanes":20,"./rec":23,"./render-arcs":24,"./render-assign":25,"./render-gaps":26,"./render-groups":27,"./render-marks":28,"./render-reg":29,"./render-wave-lane":31}],31:[function(require,module,exports){
 'use strict';
 
 var tspan = require('tspan'),
@@ -2095,7 +2189,7 @@ module.exports = renderWaveLane;
 
 /* eslint-env browser */
 
-},{"./create-element":2,"./find-lane-markers":5,"./w3":31,"tspan":38}],31:[function(require,module,exports){
+},{"./create-element":2,"./find-lane-markers":5,"./w3":32,"tspan":36}],32:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -2104,7 +2198,7 @@ module.exports = {
     xmlns: 'http://www.w3.org/XML/1998/namespace'
 };
 
-},{}],32:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 'use strict';
 
 window.WaveDrom = window.WaveDrom || {};
@@ -2112,20 +2206,21 @@ window.WaveDrom = window.WaveDrom || {};
 var index = require('./');
 
 window.WaveDrom.ProcessAll = index.processAll;
+window.WaveDrom.Process = index.process;
 window.WaveDrom.RenderWaveForm = index.renderWaveForm;
 window.WaveDrom.EditorRefresh = index.editorRefresh;
 window.WaveDrom.eva = index.eva;
 
 /* eslint-env browser */
 
-},{"./":9}],33:[function(require,module,exports){
+},{"./":9}],34:[function(require,module,exports){
 'use strict';
 
 module.exports = window.WaveSkin;
 
 /* eslint-env browser */
 
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 'use strict';
 
 var tspan = require('tspan');
@@ -2339,18 +2434,16 @@ function render (desc, opt) {
 
 module.exports = render;
 
-},{"tspan":35}],35:[function(require,module,exports){
+},{"tspan":36}],36:[function(require,module,exports){
 'use strict';
 
 var parse = require('./parse'),
     reparse = require('./reparse');
 
-module.exports = {
-    parse: parse,
-    reparse: reparse
-};
+exports.parse = parse;
+exports.reparse = reparse;
 
-},{"./parse":36,"./reparse":37}],36:[function(require,module,exports){
+},{"./parse":37,"./reparse":38}],37:[function(require,module,exports){
 'use strict';
 
 var token = /<o>|<ins>|<s>|<sub>|<sup>|<b>|<i>|<tt>|<\/o>|<\/ins>|<\/s>|<\/sub>|<\/sup>|<\/b>|<\/i>|<\/tt>/;
@@ -2460,58 +2553,7 @@ function parse (str) {
 module.exports = parse;
 /* eslint no-constant-condition: 0 */
 
-},{}],37:[function(require,module,exports){
-'use strict';
-
-var parse = require('./parse');
-
-function deDash (str) {
-    var m = str.match(/(\w+)-(\w)(\w+)/);
-    if (m === null) {
-        return str;
-    }
-    var newStr = m[1] + m[2].toUpperCase() + m[3];
-    return newStr;
-}
-
-function reparse (React) {
-
-    var $ = React.createElement;
-
-    function reTspan (e, i) {
-        var tag = e[0];
-        var attr = e[1];
-
-        var newAttr = Object.keys(attr).reduce(function (res, key) {
-            var newKey = deDash(key);
-            res[newKey] = attr[key];
-            return res;
-        }, {});
-
-        var body = e[2];
-        attr.key = i;
-        return $(tag, newAttr, body);
-    }
-
-    return function (str) {
-        return parse(str).map(reTspan);
-    };
-}
-
-module.exports = reparse;
-
-},{"./parse":36}],38:[function(require,module,exports){
-'use strict';
-
-var parse = require('./parse'),
-    reparse = require('./reparse');
-
-exports.parse = parse;
-exports.reparse = reparse;
-
-},{"./parse":39,"./reparse":40}],39:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],40:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 var parse = require('./parse');
@@ -2551,4 +2593,4 @@ function reparse (React) {
 
 module.exports = reparse;
 
-},{"./parse":39}]},{},[32]);
+},{"./parse":37}]},{},[33]);
